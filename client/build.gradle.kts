@@ -8,11 +8,6 @@
 
 plugins {
     application
-    `java-library`
-}
-java {
-    sourceCompatibility = JavaVersion.VERSION_11
-    targetCompatibility = JavaVersion.VERSION_11
 }
 
 repositories {
@@ -22,29 +17,25 @@ repositories {
 
 dependencies {
     // Use JUnit test framework.
-    testImplementation("junit:junit:4.13.2")
-
-    // This dependency is used by the application.
-    implementation("com.google.guava:guava:31.1-jre")
+    implementation("org.junit.jupiter:junit-jupiter:5.9.0")
 
     // ETCD
     implementation("io.etcd:jetcd-core:0.7.3")
     implementation("org.slf4j:slf4j-simple:2.0.3")
-    implementation("io.netty:netty-resolver-dns-native-macos:4.1.84.Final:osx-aarch_64")
 
     implementation("com.google.code.gson:gson:2.10")
+
+    // https://mvnrepository.com/artifact/io.netty/netty-all
+    implementation("io.netty:netty-all:4.1.84.Final")
+
 }
 
 application {
-    mainClass.set("it.unibo.ds.lab.consensus.client.Main")
+    // Define the main class for the application.
+    mainClass.set("it.unibo.ds.lab.consensus.client.ChatClient")
 }
 
 tasks.getByName<JavaExec>("run") {
     standardInput = System.`in`
-    if (project.hasProperty("mode")) {
-        when (project.property("mode").toString().toLowerCase()) {
-            "uppercase", "u" -> args("-u")
-            "lowercase", "l" -> args("-l")
-        }
-    }
+    args("Matteo", "http://localhost:2379")
 }

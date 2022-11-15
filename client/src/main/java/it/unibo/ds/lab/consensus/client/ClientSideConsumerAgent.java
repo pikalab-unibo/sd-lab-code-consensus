@@ -19,7 +19,7 @@ public class ClientSideConsumerAgent extends Thread {
     private final Client client;
     private final OutputStream outputStream;
 
-    public ClientSideConsumerAgent(OutputStream outputStream, Client client) {
+    public ClientSideConsumerAgent(Client client) {
         this.outputStream = System.out;
         this.client = client;
     }
@@ -27,32 +27,30 @@ public class ClientSideConsumerAgent extends Thread {
     @Override
     public void run() {
         var outputStream = this.outputStream;
-        while (true) {
-            CountDownLatch latch = new CountDownLatch(1);
-            ByteSequence key = ByteSequence.from(CHAT_NAME.getBytes());
-            Watch.Listener listener = Watch.listener(response -> {
-                for (WatchEvent event : response.getEvents()) {
-                    var value = Optional.ofNullable(event.getKeyValue().getValue()).map(ByteSequence::toString).orElse("");
-                    try {
-                        Message message = gson.fromJson(value, Message.class);
-                        outputStream.write(message.toPrettyString().getBytes());
-                    } catch (JsonSyntaxException e) {
-                        System.out.print("Watching Error " + e);
-                        System.exit(1);
-                    } catch (IOException e) {
-                        System.out.print("IO Error " + e);
-                        System.exit(1);
-                    }
+        CountDownLatch latch = new CountDownLatch(1);
+        ByteSequence key = ByteSequence.from(CHAT_NAME.getBytes());
+        Watch.Listener listener = Watch.listener(response -> {
+            for (WatchEvent event : response.getEvents()) {
+                var value = Optional.ofNullable(event.getKeyValue().getValue()).map(ByteSequence::toString).orElse("");
+                try {
+                    Message message = gson.fromJson(value, Message.class);
+                    outputStream.write(message.toPrettyString().getBytes());
+                } catch (JsonSyntaxException e) {
+                    System.out.print("Watching Error " + e);
+                    System.exit(1);
+                } catch (IOException e) {
+                    System.out.print("IO Error " + e);
+                    System.exit(1);
                 }
-                // latch.countDown();
-            });
-            try (Watch watch = client.getWatchClient();
-                 Watch.Watcher watcher = watch.watch(key, listener)) {
-                latch.await(); // Blocking, prevent the thread to terminate.
-            } catch (Exception e) {
-                System.out.print("Watching Error " + e);
-                System.exit(1);
             }
+            // latch.countDown();
+        });
+        try (Watch watch = client.getWatchClient();
+             Watch.Watcher watcher = watch.watch(key, listener)) {
+            latch.await(); // Blocking, prevent the thread to terminate.
+        } catch (Exception e) {
+            System.out.print("Watching Error " + e);
+            System.exit(1);
         }
     }
 }

@@ -20,7 +20,7 @@ public class ConsoleConsumerAgent extends Thread {
     private final Client client;
     private static final String CHAT_NAME = "chat1";
 
-    public ConsoleConsumerAgent(InputStream inputStream, String username, Client client) {
+    public ConsoleConsumerAgent(String username, Client client) {
         this.inputStream = System.in;
         this.username = username;
         this.client = client;
@@ -34,7 +34,7 @@ public class ConsoleConsumerAgent extends Thread {
                 int readBytes = this.inputStream.read(buffer);
                 if (readBytes < 0) {
                     System.out.println("Reached end of input");
-                    break;
+                    System.exit(0);
                 } else {
                     var key = ByteSequence.from(CHAT_NAME.getBytes());
                     var message = new Message(username, Arrays.copyOfRange(buffer, 0, readBytes));
