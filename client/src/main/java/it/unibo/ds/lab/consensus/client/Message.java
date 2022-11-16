@@ -64,6 +64,6 @@ public class Message {
     }
 
     public String toPrettyString() {
-        return username +  " [" + date + " " + time + "]:\n> " + this.getBody() + '\n';
+        return username +  ": " + this.getBody();
     }
 }

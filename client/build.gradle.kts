@@ -37,5 +37,19 @@ application {
 
 tasks.getByName<JavaExec>("run") {
     standardInput = System.`in`
-    args("Matteo", "http://localhost:2379")
+    args("Matteo", "c", "http://localhost:2379")
+}
+
+tasks.create<JavaExec>("runGiovanni") {
+    standardInput = System.`in`
+    mainClass.set(application.mainClass)
+    classpath = sourceSets.main.get().runtimeClasspath
+    args("Giovanni", "c", "http://localhost:2379")
+}
+
+tasks.create<JavaExec>("runMatteo") {
+    standardInput = System.`in`
+    mainClass.set(application.mainClass)
+    classpath = sourceSets.main.get().runtimeClasspath
+    args("Matteo", "c", "http://localhost:2379")
 }
