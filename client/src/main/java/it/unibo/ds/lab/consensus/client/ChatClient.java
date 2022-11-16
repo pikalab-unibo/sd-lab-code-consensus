@@ -20,7 +20,6 @@ import java.util.concurrent.ExecutionException;
 public class ChatClient {
 
     private static final Gson gson = GsonUtils.createGson();
-    private static final String CHAT_NAME = "chat1";
     private static final int BUFFER_SIZE = 1024;
     private static final byte[] buffer = new byte[BUFFER_SIZE];
 

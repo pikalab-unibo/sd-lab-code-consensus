@@ -10,6 +10,9 @@ public class TestChatClient extends BaseTest{
 
     @Test
     public void emptyInputStreamIsNotTransmitted() throws IOException, InterruptedException {
+        Runtime rt = Runtime.getRuntime();
+        Process pr = rt.exec("etcd");
+        pr.waitFor(3, TimeUnit.SECONDS);
         String etcdServers = "http://localhost:2379";
         try (TestableProcess client = startJavaProcess(ChatClient.class, "client", "chat0", etcdServers)) {
             client.stdin().close();
@@ -24,10 +27,14 @@ public class TestChatClient extends BaseTest{
                     "client: exited!"
             );
         }
+        pr.destroy();
     }
 
     @Test
     public void SingleMessageTransmission() throws IOException, InterruptedException {
+        Runtime rt = Runtime.getRuntime();
+        Process pr = rt.exec("etcd");
+        pr.waitFor(3, TimeUnit.SECONDS);
         String etcdServers = "http://localhost:2379";
         String chat = "chat1";
         try (TestableProcess clientMatteo = startJavaProcess(ChatClient.class, "Matteo", chat, etcdServers);
@@ -75,10 +82,14 @@ public class TestChatClient extends BaseTest{
                 );
             }
         }
+        pr.destroy();
     }
 
     @Test
     public void notTrivialMessageExchange() throws IOException, InterruptedException {
+        Runtime rt = Runtime.getRuntime();
+        Process pr = rt.exec("etcd");
+        pr.waitFor(3, TimeUnit.SECONDS);
         String etcdServers = "http://localhost:2379";
         String chat = "chat2";
         try (TestableProcess clientMatteo = startJavaProcess(ChatClient.class, "Matteo", chat, etcdServers);
@@ -141,5 +152,6 @@ public class TestChatClient extends BaseTest{
                 );
             }
         }
+        pr.destroy();
     }
 }
