@@ -23,8 +23,11 @@ dependencies {
     implementation("io.etcd:jetcd-core:0.7.3")
 
     // LOGGING (nop hides tests, simple shows them)
-//    implementation("org.slf4j:slf4j-simple:2.0.3") // tests will fail if logs are printed!
+    //implementation("org.slf4j:slf4j-simple:2.0.3") // tests will fail if logs are printed!
     implementation("org.slf4j:slf4j-nop:2.0.3")
+
+    // https://mvnrepository.com/artifact/io.netty/netty-all
+    implementation("io.netty:netty-all:4.1.84.Final") // No netty warning messages on stderr
 
     implementation(project(":presentation"))
 }
