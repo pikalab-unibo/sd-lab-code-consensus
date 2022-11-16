@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -14,16 +15,18 @@ public class TestChatClient extends BaseTest {
 
     @BeforeEach
     public void startEndpoints() throws IOException, InterruptedException {
-        var dockerComposeUp = startProcessInDir("..", "docker-compose", "up", "-d");
-        dockerComposeUp.process().waitFor();
-        dockerComposeUp.printDebugInfo("docker-compose-up");
+        try (var dockerComposeUp = startProcessInDir("..", "docker-compose", "up", "-d")) {
+            dockerComposeUp.process().waitFor();
+            dockerComposeUp.printDebugInfo("docker-compose-up");
+        }
     }
 
     @AfterEach
     public void stopEndpoints() throws IOException, InterruptedException {
-        var dockerComposeDown = startProcessInDir("..", "docker-compose", "down");
-        dockerComposeDown.process().waitFor();
-        dockerComposeDown.printDebugInfo("docker-compose-down");
+        try (var dockerComposeDown = startProcessInDir("..", "docker-compose", "down")) {
+            dockerComposeDown.process().waitFor();
+            dockerComposeDown.printDebugInfo("docker-compose-down");
+        }
     }
 
     private String endpoint(int i) {
@@ -56,113 +59,88 @@ public class TestChatClient extends BaseTest {
     @Test
     public void singleMessageTransmission() throws IOException, InterruptedException {
         String chat = "chat1";
-        try (TestableProcess clientMatteo = startClient("Matteo", chat, defaultEndpoints);
-             TestableProcess clientGiovanni = startClient("Giovanni", chat, defaultEndpoints);
-             TestableProcess clientAndrea = startClient("Andrea", chat, defaultEndpoints)) {
-            try (var clientMatteoStdin = clientMatteo.stdin()) {
-                clientMatteoStdin.write("Hello there!\n");
-                Thread.sleep(1000);
-                clientMatteo.stdin().close();
-                Thread.sleep(1000);
-                assertTrue(clientMatteo.process().waitFor(3, TimeUnit.SECONDS));
-                clientGiovanni.stdin().close();
-                Thread.sleep(1000);
-                assertTrue(clientGiovanni.process().waitFor(3, TimeUnit.SECONDS));
-                clientAndrea.stdin().close();
-                Thread.sleep(1000);
-                assertTrue(clientAndrea.process().waitFor(3, TimeUnit.SECONDS));
-                assertTrue(clientMatteo.stderrAsText().isBlank());
-                assertTrue(clientGiovanni.stderrAsText().isBlank());
-                assertTrue(clientAndrea.stderrAsText().isBlank());
-                clientMatteo.printDebugInfo("clientMatteo");
-                assertRelativeOrderOfLines(
-                        clientMatteo.stdoutAsText(),
-                        "Contacting host(s) [http://localhost:1000",
-                        "Connection established",
-                        "Matteo: Hello there!"
-                );
-                clientGiovanni.printDebugInfo("clientGiovanni");
-                assertRelativeOrderOfLines(
-                        clientGiovanni.stdoutAsText(),
-                        "Contacting host(s) [http://localhost:1000",
-                        "Connection established",
-                        "Matteo: Hello there!",
-                        "Matteo: exited!"
-                );
+        try (TestableProcess matteo = startClient("Matteo", chat, defaultEndpoints);
+             TestableProcess giovanni = startClient("Giovanni", chat, defaultEndpoints);
+             TestableProcess andrea = startClient("Andrea", chat, defaultEndpoints)
+        ) {
+            matteo.feedStdin("Hello there!\n");
+            matteo.stdin().close();
+            assertEquals(0, matteo.process().waitFor());
 
-                clientGiovanni.printDebugInfo("clientAndrea");
-                assertRelativeOrderOfLines(
-                        clientGiovanni.stdoutAsText(),
-                        "Contacting host(s) [http://localhost:1000",
-                        "Connection established",
-                        "Matteo: Hello there!",
-                        "Matteo: exited!",
-                        "Giovanni: exited!"
-                );
-            }
+            giovanni.stdin().close();
+            assertEquals(0, giovanni.process().waitFor());
+
+            andrea.stdin().close();
+            assertEquals(0, andrea.process().waitFor());
+
+            matteo.printDebugInfo("matteo");
+            giovanni.printDebugInfo("giovanni");
+            andrea.printDebugInfo("andrea");
+            assertTrue(matteo.stderrAsText().isBlank());
+            assertTrue(giovanni.stderrAsText().isBlank());
+            assertTrue(andrea.stderrAsText().isBlank());
+            assertRelativeOrderOfLines(
+                    matteo.stdoutAsText(),
+                    "Contacting host(s) [http://localhost:1000",
+                    "Connection established",
+                    "Matteo: Hello there!"
+            );
+            assertRelativeOrderOfLines(
+                    giovanni.stdoutAsText(),
+                    "Contacting host(s) [http://localhost:1000",
+                    "Connection established",
+                    "Matteo: Hello there!",
+                    "Matteo: exited!"
+            );
+
+            assertRelativeOrderOfLines(
+                    giovanni.stdoutAsText(),
+                    "Contacting host(s) [http://localhost:1000",
+                    "Connection established",
+                    "Matteo: Hello there!",
+                    "Matteo: exited!",
+                    "Giovanni: exited!"
+            );
         }
     }
 
     @Test
-    public void notTrivialMessageExchange() throws IOException, InterruptedException {
+    public void allClientsSeeMessagesInTheSameOrder() throws IOException, InterruptedException {
         String chat = "chat2";
-        try (TestableProcess clientMatteo = startClient("Matteo", chat, defaultEndpoints);
-             TestableProcess clientGiovanni = startClient("Giovanni", chat, defaultEndpoints);
-             TestableProcess clientAndrea = startClient("Andrea", chat, defaultEndpoints)) {
-            try (var clientMatteoStdin = clientMatteo.stdin();
-                 var clientGiovanniStdin = clientGiovanni.stdin();
-                 var clientAndreaStdin = clientAndrea.stdin()) {
-                clientMatteoStdin.write("Hello there!\n");
-                clientAndrea.process().waitFor(2, TimeUnit.SECONDS);
-                clientGiovanni.process().waitFor(2, TimeUnit.SECONDS);
-                clientGiovanniStdin.write("I've finished my coffee capsules\n");
-                clientAndrea.process().waitFor(2, TimeUnit.SECONDS);
-                clientMatteo.process().waitFor(2, TimeUnit.SECONDS);
-                clientAndreaStdin.write("I'm leaving\n");
-                clientMatteo.process().waitFor(2, TimeUnit.SECONDS);
-                clientGiovanni.process().waitFor(2, TimeUnit.SECONDS);
-                clientAndrea.stdin().close();
-                assertTrue(clientAndrea.process().waitFor(5, TimeUnit.SECONDS));
-                clientMatteoStdin.write("You can take one of mine\n");
-                clientGiovanni.process().waitFor(2, TimeUnit.SECONDS);
-                clientMatteo.stdin().close();
-                assertTrue(clientMatteo.process().waitFor(5, TimeUnit.SECONDS));
-                clientGiovanni.stdin().close();
-                assertTrue(clientGiovanni.process().waitFor(5, TimeUnit.SECONDS));
-                assertTrue(clientMatteo.stderrAsText().isBlank());
-                assertTrue(clientGiovanni.stderrAsText().isBlank());
-                assertTrue(clientAndrea.stderrAsText().isBlank());
-                clientMatteo.printDebugInfo("clientMatteo");
+        try (TestableProcess matteo = startClient("Matteo", chat, defaultEndpoints);
+             TestableProcess giovanni = startClient("Giovanni", chat, defaultEndpoints);
+             TestableProcess andrea = startClient("Andrea", chat, defaultEndpoints)
+        ) {
+            matteo.feedStdin("Hello there!\n");
+            matteo.awaitOutputContains("Matteo: Hello there!");
+
+            giovanni.feedStdin("Hi there...\n");
+            giovanni.awaitOutputContains("Giovanni: Hi there...");
+
+            andrea.feedStdin("Hello guys.\n");
+            andrea.awaitOutputContains("Andrea: Hello guys.");
+
+            matteo.stdin().close();
+            giovanni.stdin().close();
+            andrea.stdin().close();
+            assertEquals(0, matteo.process().waitFor());
+            assertEquals(0, giovanni.process().waitFor());
+            assertEquals(0, andrea.process().waitFor());
+            matteo.printDebugInfo("matteo");
+            giovanni.printDebugInfo("giovanni");
+            andrea.printDebugInfo("andrea");
+            assertTrue(matteo.stderrAsText().isBlank());
+            assertTrue(giovanni.stderrAsText().isBlank());
+            assertTrue(andrea.stderrAsText().isBlank());
+
+            for (var client : List.of(matteo, giovanni, andrea)) {
                 assertRelativeOrderOfLines(
-                        clientMatteo.stdoutAsText(),
+                        client.stdoutAsText(),
                         "Contacting host(s) [http://localhost:1000",
                         "Connection established",
                         "Matteo: Hello there!",
-                        "Giovanni: I've finished my coffee capsules",
-                        "Andrea: I'm leaving",
-                        "Andrea: exited!",
-                        "Matteo: You can take one of mine"
-                );
-                clientGiovanni.printDebugInfo("clientGiovanni");
-                assertRelativeOrderOfLines(
-                        clientGiovanni.stdoutAsText(),
-                        "Contacting host(s) [http://localhost:1000",
-                        "Connection established",
-                        "Matteo: Hello there!",
-                        "Giovanni: I've finished my coffee capsules",
-                        "Andrea: I'm leaving",
-                        "Andrea: exited!",
-                        "Matteo: You can take one of mine",
-                        "Matteo: exited!"
-                );
-                clientGiovanni.printDebugInfo("clientAndrea");
-                assertRelativeOrderOfLines(
-                        clientGiovanni.stdoutAsText(),
-                        "Contacting host(s) [http://localhost:1000",
-                        "Connection established",
-                        "Matteo: Hello there!",
-                        "Giovanni: I've finished my coffee capsules",
-                        "Andrea: I'm leaving"
+                        "Giovanni: Hi there...",
+                        "Andrea: Hello guys."
                 );
             }
         }

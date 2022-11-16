@@ -92,6 +92,7 @@ public class ChatClient {
                 try {
                     Message message = gson.fromJson(value, Message.class);
                     outputStream.write(message.toPrettyString().getBytes());
+                    outputStream.flush();
                 } catch (JsonSyntaxException e) {
                     System.out.print("Watching Error " + e);
                     System.exit(1);

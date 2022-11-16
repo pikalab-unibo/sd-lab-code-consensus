@@ -55,4 +55,16 @@ public record TestableProcess(Process process, File stdout, File stderr) impleme
         System.out.println(stderrAsText().replace("\n", "\n> "));
         System.out.println();
     }
+
+    public void feedStdin(String line) throws IOException {
+        stdin().write(line);
+        stdin().write("\n");
+        stdin().flush();
+    }
+
+    public void awaitOutputContains(String line) {
+        while (stdoutAsLines().stream().noneMatch(it -> it.startsWith(line))) {
+            // busy wait
+        }
+    }
 }
