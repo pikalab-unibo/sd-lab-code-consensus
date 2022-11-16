@@ -21,13 +21,12 @@ dependencies {
 
     // ETCD
     implementation("io.etcd:jetcd-core:0.7.3")
-    implementation("org.slf4j:slf4j-simple:2.0.3")
 
-    implementation("com.google.code.gson:gson:2.10")
+    // LOGGING (nop hides tests, simple shows them)
+//    implementation("org.slf4j:slf4j-simple:2.0.3") // tests will fail if logs are printed!
+    implementation("org.slf4j:slf4j-nop:2.0.3")
 
-    // https://mvnrepository.com/artifact/io.netty/netty-all
-    implementation("io.netty:netty-all:4.1.84.Final")
-
+    implementation(project(":presentation"))
 }
 
 application {
@@ -37,19 +36,19 @@ application {
 
 tasks.getByName<JavaExec>("run") {
     standardInput = System.`in`
-    args("Matteo", "c", "http://localhost:2379")
+    args("Matteo", "c", "http://localhost:10000")
 }
 
 tasks.create<JavaExec>("runGiovanni") {
     standardInput = System.`in`
     mainClass.set(application.mainClass)
     classpath = sourceSets.main.get().runtimeClasspath
-    args("Giovanni", "c", "http://localhost:2379")
+    args("Giovanni", "c", "http://localhost:10001")
 }
 
 tasks.create<JavaExec>("runMatteo") {
     standardInput = System.`in`
     mainClass.set(application.mainClass)
     classpath = sourceSets.main.get().runtimeClasspath
-    args("Matteo", "c", "http://localhost:2379")
+    args("Matteo", "c", "http://localhost:10002")
 }
