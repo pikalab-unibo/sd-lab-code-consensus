@@ -1,45 +1,64 @@
 package it.unibo.ds.lab.consensus.client;
 
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import java.util.stream.Stream;
 
-public class TestChatClient extends BaseTest{
+import static org.junit.jupiter.api.Assertions.*;
+
+public class TestChatClient extends BaseTest {
+
+    @BeforeEach
+    public void startEndpoints() throws IOException, InterruptedException {
+        var dockerComposeUp = startProcessInDir("..", "docker-compose", "up", "-d");
+        dockerComposeUp.process().waitFor();
+        dockerComposeUp.printDebugInfo("docker-compose-up");
+    }
+
+    @AfterEach
+    public void stopEndpoints() throws IOException, InterruptedException {
+        var dockerComposeDown = startProcessInDir("..", "docker-compose", "down");
+        dockerComposeDown.process().waitFor();
+        dockerComposeDown.printDebugInfo("docker-compose-down");
+    }
+
+    private String endpoint(int i) {
+        return "http://localhost:" + (10000 + i);
+    }
+
+    private final String[] defaultEndpoints = new String[]{endpoint(0), endpoint(1), endpoint(2)};
+
+    private TestableProcess startClient(String name, String chat, String... endpoints) throws IOException {
+        var args = Stream.concat(Stream.of(name, chat), Stream.of(endpoints)).toArray();
+        return startJavaProcess(ChatClient.class, args);
+    }
 
     @Test
     public void emptyInputStreamIsNotTransmitted() throws IOException, InterruptedException {
-        Runtime rt = Runtime.getRuntime();
-        Process pr = rt.exec("etcd");
-        pr.waitFor(3, TimeUnit.SECONDS);
-        String etcdServers = "http://localhost:2379";
-        try (TestableProcess client = startJavaProcess(ChatClient.class, "client", "chat0", etcdServers)) {
+        try (TestableProcess client = startClient("client", "chat0", defaultEndpoints)) {
             client.stdin().close();
-            assertTrue(client.process().waitFor(3, TimeUnit.SECONDS));
-            assertEquals(0, client.process().exitValue());
+            assertEquals(0, client.process().waitFor());
             client.printDebugInfo("client");
             assertTrue(client.stderrAsText().isBlank());
             assertRelativeOrderOfLines(
                     client.stdoutAsText(),
-                    "Contacting host(s) [http://localhost:2379]...",
+                    "Contacting host(s) [http://localhost:1000",
                     "Connection established",
                     "client: exited!"
             );
         }
-        pr.destroy();
     }
 
     @Test
-    public void SingleMessageTransmission() throws IOException, InterruptedException {
-        Runtime rt = Runtime.getRuntime();
-        Process pr = rt.exec("etcd");
-        pr.waitFor(3, TimeUnit.SECONDS);
-        String etcdServers = "http://localhost:2379";
+    public void singleMessageTransmission() throws IOException, InterruptedException {
         String chat = "chat1";
-        try (TestableProcess clientMatteo = startJavaProcess(ChatClient.class, "Matteo", chat, etcdServers);
-             TestableProcess clientGiovanni = startJavaProcess(ChatClient.class, "Giovanni", chat, etcdServers);
-             TestableProcess clientAndrea = startJavaProcess(ChatClient.class, "Andrea", chat, etcdServers)) {
+        try (TestableProcess clientMatteo = startClient("Matteo", chat, defaultEndpoints);
+             TestableProcess clientGiovanni = startClient("Giovanni", chat, defaultEndpoints);
+             TestableProcess clientAndrea = startClient("Andrea", chat, defaultEndpoints)) {
             try (var clientMatteoStdin = clientMatteo.stdin()) {
                 clientMatteoStdin.write("Hello there!\n");
                 Thread.sleep(1000);
@@ -58,14 +77,14 @@ public class TestChatClient extends BaseTest{
                 clientMatteo.printDebugInfo("clientMatteo");
                 assertRelativeOrderOfLines(
                         clientMatteo.stdoutAsText(),
-                        "Contacting host(s) [http://localhost:2379]...",
+                        "Contacting host(s) [http://localhost:1000",
                         "Connection established",
                         "Matteo: Hello there!"
                 );
                 clientGiovanni.printDebugInfo("clientGiovanni");
                 assertRelativeOrderOfLines(
                         clientGiovanni.stdoutAsText(),
-                        "Contacting host(s) [http://localhost:2379]...",
+                        "Contacting host(s) [http://localhost:1000",
                         "Connection established",
                         "Matteo: Hello there!",
                         "Matteo: exited!"
@@ -74,7 +93,7 @@ public class TestChatClient extends BaseTest{
                 clientGiovanni.printDebugInfo("clientAndrea");
                 assertRelativeOrderOfLines(
                         clientGiovanni.stdoutAsText(),
-                        "Contacting host(s) [http://localhost:2379]...",
+                        "Contacting host(s) [http://localhost:1000",
                         "Connection established",
                         "Matteo: Hello there!",
                         "Matteo: exited!",
@@ -82,19 +101,14 @@ public class TestChatClient extends BaseTest{
                 );
             }
         }
-        pr.destroy();
     }
 
     @Test
     public void notTrivialMessageExchange() throws IOException, InterruptedException {
-        Runtime rt = Runtime.getRuntime();
-        Process pr = rt.exec("etcd");
-        pr.waitFor(3, TimeUnit.SECONDS);
-        String etcdServers = "http://localhost:2379";
         String chat = "chat2";
-        try (TestableProcess clientMatteo = startJavaProcess(ChatClient.class, "Matteo", chat, etcdServers);
-             TestableProcess clientGiovanni = startJavaProcess(ChatClient.class, "Giovanni", chat, etcdServers);
-             TestableProcess clientAndrea = startJavaProcess(ChatClient.class, "Andrea", chat, etcdServers)) {
+        try (TestableProcess clientMatteo = startClient("Matteo", chat, defaultEndpoints);
+             TestableProcess clientGiovanni = startClient("Giovanni", chat, defaultEndpoints);
+             TestableProcess clientAndrea = startClient("Andrea", chat, defaultEndpoints)) {
             try (var clientMatteoStdin = clientMatteo.stdin();
                  var clientGiovanniStdin = clientGiovanni.stdin();
                  var clientAndreaStdin = clientAndrea.stdin()) {
@@ -121,7 +135,7 @@ public class TestChatClient extends BaseTest{
                 clientMatteo.printDebugInfo("clientMatteo");
                 assertRelativeOrderOfLines(
                         clientMatteo.stdoutAsText(),
-                        "Contacting host(s) [http://localhost:2379]...",
+                        "Contacting host(s) [http://localhost:1000",
                         "Connection established",
                         "Matteo: Hello there!",
                         "Giovanni: I've finished my coffee capsules",
@@ -132,7 +146,7 @@ public class TestChatClient extends BaseTest{
                 clientGiovanni.printDebugInfo("clientGiovanni");
                 assertRelativeOrderOfLines(
                         clientGiovanni.stdoutAsText(),
-                        "Contacting host(s) [http://localhost:2379]...",
+                        "Contacting host(s) [http://localhost:1000",
                         "Connection established",
                         "Matteo: Hello there!",
                         "Giovanni: I've finished my coffee capsules",
@@ -144,7 +158,7 @@ public class TestChatClient extends BaseTest{
                 clientGiovanni.printDebugInfo("clientAndrea");
                 assertRelativeOrderOfLines(
                         clientGiovanni.stdoutAsText(),
-                        "Contacting host(s) [http://localhost:2379]...",
+                        "Contacting host(s) [http://localhost:1000",
                         "Connection established",
                         "Matteo: Hello there!",
                         "Giovanni: I've finished my coffee capsules",
@@ -152,6 +166,5 @@ public class TestChatClient extends BaseTest{
                 );
             }
         }
-        pr.destroy();
     }
 }

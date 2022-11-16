@@ -4,7 +4,6 @@ import org.opentest4j.AssertionFailedError;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
-import java.util.Objects;
 import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -74,8 +73,12 @@ public class BaseTest {
                 klass.getName()
         );
         Stream<String> arguments = Stream.of(args).map(Object::toString);
-        var commandLine = Stream.concat(command, arguments).collect(Collectors.toList());
-        var prefix = this.getClass().getName() + "-" + klass.getName() + "#" + Objects.hash(args);
+        return startProcess(Stream.concat(command, arguments), klass.getName());
+    }
+
+    private TestableProcess startProcess(File workDir, Stream<String> cmdLine, String classifier) throws IOException {
+        var commandLine = cmdLine.collect(Collectors.toList());
+        var prefix = this.getClass().getName() + "-" + classifier + "#" + commandLine.hashCode();
         var stdOut = File.createTempFile(prefix + "-stdout", ".txt");
         stdOut.deleteOnExit();
         var stdErr = File.createTempFile(prefix + "-stderr", ".txt");
@@ -83,7 +86,16 @@ public class BaseTest {
         var process = new ProcessBuilder(commandLine)
                 .redirectOutput(ProcessBuilder.Redirect.to(stdOut))
                 .redirectError(ProcessBuilder.Redirect.to(stdErr))
+                .directory(workDir)
                 .start();
         return new TestableProcess(process, stdOut, stdErr);
+    }
+
+    private TestableProcess startProcess(Stream<String> cmdLine, String classifier) throws IOException {
+        return startProcess(new File("."), cmdLine, classifier);
+    }
+
+    protected TestableProcess startProcessInDir(String workDir, String cmd, String... args) throws IOException {
+        return startProcess(new File(workDir), Stream.concat(Stream.of(cmd), Stream.of(args)), cmd);
     }
 }
