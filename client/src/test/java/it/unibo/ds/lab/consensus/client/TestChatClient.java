@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -40,6 +41,10 @@ public class TestChatClient extends BaseTest {
         return startJavaProcess(ChatClient.class, args);
     }
 
+    private void awaitClientsAreConnected(TestableProcess... clients) {
+        Arrays.stream(clients).forEach(c -> c.awaitOutputContains("Connection established"));
+    }
+
     @Test
     public void emptyInputStreamIsNotTransmitted() throws IOException, InterruptedException {
         try (TestableProcess client = startClient("client", "chat0", defaultEndpoints)) {
@@ -63,6 +68,7 @@ public class TestChatClient extends BaseTest {
              TestableProcess giovanni = startClient("Giovanni", chat, defaultEndpoints);
              TestableProcess andrea = startClient("Andrea", chat, defaultEndpoints)
         ) {
+            awaitClientsAreConnected(matteo, giovanni, andrea);
             matteo.feedStdin("Hello there!\n");
             matteo.stdin().close();
             assertEquals(0, matteo.process().waitFor());
@@ -111,6 +117,7 @@ public class TestChatClient extends BaseTest {
              TestableProcess giovanni = startClient("Giovanni", chat, defaultEndpoints);
              TestableProcess andrea = startClient("Andrea", chat, defaultEndpoints)
         ) {
+            awaitClientsAreConnected(matteo, giovanni, andrea);
             matteo.feedStdin("Hello there!\n");
             matteo.awaitOutputContains("Matteo: Hello there!");
 
@@ -121,8 +128,12 @@ public class TestChatClient extends BaseTest {
             andrea.awaitOutputContains("Andrea: Hello guys.");
 
             matteo.stdin().close();
+            giovanni.awaitOutputContains("Matteo: exited!");
             giovanni.stdin().close();
+            andrea.awaitOutputContains("Matteo: exited!");
+            andrea.awaitOutputContains("Giovanni: exited!");
             andrea.stdin().close();
+
             assertEquals(0, matteo.process().waitFor());
             assertEquals(0, giovanni.process().waitFor());
             assertEquals(0, andrea.process().waitFor());
