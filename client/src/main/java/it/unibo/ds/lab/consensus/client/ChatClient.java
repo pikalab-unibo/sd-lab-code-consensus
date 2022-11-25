@@ -9,11 +9,13 @@ import io.etcd.jetcd.Watch;
 import io.etcd.jetcd.common.exception.EtcdException;
 import io.etcd.jetcd.watch.WatchEvent;
 import it.unibo.ds.lab.consensus.presentation.GsonUtils;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 
 
@@ -46,7 +48,9 @@ public class ChatClient {
             System.out.printf("Contacting host(s) %s...\n", Arrays.toString(servers));
             Client client = Client.builder().endpoints(servers).build();
             System.out.println("Connection established");
-            chatImpl(username, chat, client);
+            CountDownLatch latch = new CountDownLatch(1);
+            chatImpl(username, chat, client, latch);
+            latch.await();
             System.exit(0);
         } catch (IOException e) {
             e.printStackTrace();
@@ -56,8 +60,8 @@ public class ChatClient {
         }
     }
 
-    private static void chatImpl(String username, String chat, Client client) throws IOException, ExecutionException, InterruptedException {
-        propagateServerToStdout(username, chat, client);
+    private static void chatImpl(String username, String chat, Client client, CountDownLatch latch) throws IOException, ExecutionException, InterruptedException {
+        propagateServerToStdout(username, chat, client, latch);
         propagateStdinToServer(username, chat, client);
     }
 
@@ -78,12 +82,11 @@ public class ChatClient {
                 var serializedMessage = gson.toJson(message);
                 var value = ByteSequence.from(serializedMessage.getBytes());
                 kv.put(key, value).get();
-                // System.out.printf("Sent message of %d bytes\n", readBytes);
             }
         }
     }
 
-    private static void propagateServerToStdout(String username, String chat, Client client) {
+    private static void propagateServerToStdout(String username, String chat, Client client, CountDownLatch latch) {
         OutputStream outputStream = System.out;
         ByteSequence key = ByteSequence.from(chat.getBytes());
         Watch.Listener listener = Watch.listener(response -> {
@@ -91,8 +94,13 @@ public class ChatClient {
                 var value = Optional.ofNullable(event.getKeyValue().getValue()).map(ByteSequence::toString).orElse("");
                 try {
                     Message message = gson.fromJson(value, Message.class);
-                    outputStream.write(message.toPrettyString().getBytes());
-                    outputStream.flush();
+                    if (latch.getCount() > 0){
+                        outputStream.write(message.toPrettyString().getBytes());
+                        outputStream.flush();
+                    }
+                    if (message.getUsername().equals(username) && message.getBody().equals("exited!\n")){
+                        latch.countDown();
+                    }
                 } catch (JsonSyntaxException e) {
                     System.out.print("Watching Error " + e);
                     System.exit(1);
