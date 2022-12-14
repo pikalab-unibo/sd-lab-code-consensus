@@ -1,0 +1,59 @@
+name: compile-and-test
+on:
+  push:
+    branches:
+      - '**'
+env:
+  PROJECT_NAME: lab-consensus
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    name: Check compilation
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3 # https://github.com/actions/checkout
+        with:
+          fetch-depth: 0
+          # submodules: recursive
+
+      - name: Build
+        run: ./gradlew classes testClasses
+
+      - name: Javadoc
+        run: ./gradlew javadoc
+
+  test-jvm:
+    needs:
+      - compile
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+        java-version:
+          - 11
+          - 17
+          - 18
+    runs-on: ${{ matrix.os }}
+    name: Run tests via JDK v${{ matrix.java-version }}, on ${{ matrix.os }}
+    timeout-minutes: 60
+    concurrency:
+      group: ${{ github.workflow }}-build-jvm-${{ matrix.os }}-${{ matrix.java-version }}-${{ github.event.number || github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: Show environment
+        run: |
+          javac --version || echo "Missing javac"
+          docker --version || echo "Missing docker"
+          docker-compose --version || echo "Missing docker compose"
+
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          # submodules: recursive
+
+      - name: Test
+        run: ./gradlew test
