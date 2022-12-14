@@ -33,19 +33,18 @@ jobs:
           - windows-latest
           - macos-latest
         java-version:
-          - 11
           - 17
           - 18
     runs-on: ${{ matrix.os }}
     name: Run tests via JDK v${{ matrix.java-version }}, on ${{ matrix.os }}
-    timeout-minutes: 60
+    timeout-minutes: 10
     concurrency:
       group: ${{ github.workflow }}-build-jvm-${{ matrix.os }}-${{ matrix.java-version }}-${{ github.event.number || github.ref }}
       cancel-in-progress: true
     steps:
       - name: Show environment
         run: |
-          javac --version || echo "Missing javac"
+          javac -version || echo "Missing javac"
           docker --version || echo "Missing docker"
           docker-compose --version || echo "Missing docker compose"
 
