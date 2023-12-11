@@ -9,7 +9,6 @@ import io.etcd.jetcd.Watch;
 import io.etcd.jetcd.common.exception.EtcdException;
 import io.etcd.jetcd.watch.WatchEvent;
 import it.unibo.ds.lab.consensus.presentation.GsonUtils;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -111,6 +110,7 @@ public class ChatClient {
             }
         });
         Watch watch = client.getWatchClient();
-        Watch.Watcher watcher = watch.watch(key, listener);
+        watch.watch(key, listener);
+        System.out.println("Listening to new messages on chat \"" + chat + "\"");
     }
 }

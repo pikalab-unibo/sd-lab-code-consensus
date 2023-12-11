@@ -45,6 +45,10 @@ public class TestChatClient extends BaseTest {
         Arrays.stream(clients).forEach(c -> c.awaitOutputContains("Connection established"));
     }
 
+    private void awaitClientsAreListening(TestableProcess... clients) {
+        Arrays.stream(clients).forEach(c -> c.awaitOutputContains("Listening to new messages on chat"));
+    }
+
     @Test
     public void emptyInputStreamIsNotTransmitted() throws IOException, InterruptedException {
         try (TestableProcess client = startClient("client", "chat0", defaultEndpoints)) {
@@ -69,13 +73,16 @@ public class TestChatClient extends BaseTest {
              TestableProcess andrea = startClient("Andrea", chat, defaultEndpoints)
         ) {
             awaitClientsAreConnected(matteo, giovanni, andrea);
+            awaitClientsAreListening(matteo, giovanni, andrea);
             matteo.feedStdin("Hello there!\n");
             matteo.stdin().close();
             assertEquals(0, matteo.process().waitFor());
 
+            giovanni.awaitOutputContains("Matteo: Hello there!");
             giovanni.stdin().close();
             assertEquals(0, giovanni.process().waitFor());
 
+            andrea.awaitOutputContains("Matteo: Hello there!");
             andrea.stdin().close();
             assertEquals(0, andrea.process().waitFor());
 
@@ -85,6 +92,7 @@ public class TestChatClient extends BaseTest {
             assertTrue(matteo.stderrAsText().isBlank());
             assertTrue(giovanni.stderrAsText().isBlank());
             assertTrue(andrea.stderrAsText().isBlank());
+
             assertRelativeOrderOfLines(
                     matteo.stdoutAsText(),
                     "Contacting host(s) [http://localhost:1000",
@@ -98,9 +106,8 @@ public class TestChatClient extends BaseTest {
                     "Matteo: Hello there!",
                     "Matteo: exited!"
             );
-
             assertRelativeOrderOfLines(
-                    giovanni.stdoutAsText(),
+                    andrea.stdoutAsText(),
                     "Contacting host(s) [http://localhost:1000",
                     "Connection established",
                     "Matteo: Hello there!",
@@ -118,19 +125,22 @@ public class TestChatClient extends BaseTest {
              TestableProcess andrea = startClient("Andrea", chat, defaultEndpoints)
         ) {
             awaitClientsAreConnected(matteo, giovanni, andrea);
+            awaitClientsAreListening(matteo, giovanni, andrea);
             matteo.feedStdin("Hello there!\n");
             matteo.awaitOutputContains("Matteo: Hello there!");
 
+            giovanni.awaitOutputContains("Matteo: Hello there!");
             giovanni.feedStdin("Hi there...\n");
             giovanni.awaitOutputContains("Giovanni: Hi there...");
 
+            andrea.awaitOutputContains("Giovanni: Hi there...");
             andrea.feedStdin("Hello guys.\n");
             andrea.awaitOutputContains("Andrea: Hello guys.");
 
+            matteo.awaitOutputContains("Andrea: Hello guys.");
             matteo.stdin().close();
             giovanni.awaitOutputContains("Matteo: exited!");
             giovanni.stdin().close();
-            andrea.awaitOutputContains("Matteo: exited!");
             andrea.awaitOutputContains("Giovanni: exited!");
             andrea.stdin().close();
 
